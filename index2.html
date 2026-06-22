@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monarch System: Saiyan & Nika Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #04060f;
+            color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .task-card {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes slideUpPopup {
+            0% { transform: translateY(150px) scale(0.9); opacity: 0; }
+            15% { transform: translateY(0) scale(1); opacity: 1; }
+            85% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(150px) scale(0.9); opacity: 0; }
+        }
+        .anime-popup-active {
+            animation: slideUpPopup 3.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes uiGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(165, 243, 252, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(147, 197, 253, 0.6); }
+        }
+        .ultra-instinct-glow {
+            animation: uiGlow 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 max-w-md mx-auto pb-24">
+
+    <!-- Audio Elements for Awakening Sequence Sounds -->
+    <audio id="sound-gear5" src="https://actions.google.com/sounds/v1/science_fiction/glitch.ogg" preload="auto"></audio>
+    <audio id="sound-ui" src="https://actions.google.com/sounds/v1/science_fiction/sub_launch.ogg" preload="auto"></audio>
+
+    <!-- Header Section -->
+    <div class="flex justify-between items-center mb-5 pt-2">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-red-500 via-yellow-400 to-cyan-400 bg-clip-text text-transparent">GOD TIER STATUS</h1>
+            <p class="text-xs text-gray-400" id="current-date">📅 Initializing Matrix...</p>
+        </div>
+        <div class="bg-gray-950 px-3 py-1.5 rounded-full border border-gray-800 flex items-center gap-1.5 shadow-lg">
+            <span class="text-lg">🔥</span>
+            <span id="streak-count" class="font-bold text-sm text-yellow-400">0 Days</span>
+        </div>
+    </div>
+
+    <!-- Multi-Chart Matrix Box -->
+    <div class="bg-gray-900/40 rounded-2xl p-4 mb-6 border border-gray-800 shadow-2xl backdrop-blur-md">
+        <div class="flex bg-gray-950 p-1 rounded-xl mb-4 border border-gray-800/60 text-xs font-semibold">
+            <button onclick="switchChart('day')" id="btn-day" class="w-full py-1.5 rounded-lg text-cyan-400 bg-gray-900 shadow-sm transition-all">Today (Pie)</button>
+            <button onclick="switchChart('week')" id="btn-week" class="w-full py-1.5 rounded-lg text-gray-400 transition-all">Weekly (Line)</button>
+            <button onclick="switchChart('month')" id="btn-month" class="w-full py-1.5 rounded-lg text-gray-400 transition-all">Monthly (Bar)</button>
+        </div>
+
+        <div class="flex justify-between items-baseline mb-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-yellow-500">Power Level Rate</span>
+            <span id="progress-percent" class="text-xl font-black text-transparent bg-gradient-to-r from-red-400 to-cyan-400 bg-clip-text">0%</span>
+        </div>
+
+        <div class="h-36 w-full flex items-center justify-center relative">
+            <div id="wrapper-day" class="w-full h-full block"><canvas id="dayPieChart"></canvas></div>
+            <div id="wrapper-week" class="w-full h-full hidden"><canvas id="weekLineChart"></canvas></div>
+            <div id="wrapper-month" class="w-full h-full hidden"><canvas id="monthBarChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Interactive Task Creator Form -->
+    <div class="bg-gray-900/80 p-2.5 rounded-xl border border-gray-800 mb-5 flex gap-2 shadow-inner">
+        <input type="text" id="task-input" placeholder="Type target chore param..." class="bg-gray-950 text-sm text-gray-100 placeholder-gray-500 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-red-500 border border-gray-800">
+        <button onclick="addTask()" class="bg-gradient-to-r from-red-600 to-yellow-500 text-xs font-bold px-4 py-2 rounded-lg text-white tracking-wide shadow-md active:scale-95 transition-transform">+ Add</button>
+    </div>
+
+    <!-- Dashboard Subbar -->
+    <div class="flex justify-between items-center mb-3">
+        <h2 class="text-base font-bold text-gray-400 tracking-tight">Active Matrix Tasks <span id="task-count" class="text-xs font-medium text-gray-600">(0)</span></h2>
+        <button onclick="resetDay()" class="text-[10px] uppercase font-bold tracking-wider text-gray-500 bg-gray-900 hover:bg-gray-800 px-2.5 py-1 rounded-md border border-gray-800 transition-colors">Reset</button>
+    </div>
+
+    <!-- Tasks List Workspace -->
+    <div id="task-list" class="space-y-2 max-h-80 overflow-y-auto no-scrollbar pr-0.5"></div>
+
+    <!-- 👒 LUFFY TASK POPUP ELEMENT -->
+    <div id="anime-popup" class="fixed bottom-6 left-4 right-4 max-w-sm mx-auto bg-slate-900 border-2 border-yellow-500 p-3 rounded-xl shadow-2xl flex items-center gap-4 transform translate-y-48 opacity-0 z-40 pointer-events-none">
+        <div class="w-14 h-14 rounded-full border-2 border-red-500 overflow-hidden bg-slate-950 shrink-0">
+            <!-- Luffy Avatar Asset -->
+            <img id="anime-avatar" src="https://i.pinimg.com/736xl/01/a7/60/01a7604276583eef5d076aa5f4be8bc46.jpg" class="w-full h-full object-cover" alt="Luffy">
+        </div>
+        <div class="flex-1">
+            <h4 class="text-xs font-bold text-yellow-400 uppercase tracking-widest">Captain Luffy says:</h4>
+            <p id="anime-quote" class="text-sm font-semibold text-gray-100 italic">"Shishishi! Keep moving forward!"</p>
+        </div>
+    </div>
+
+    <!-- ⚡ OVERLAY 1: GEAR 5 REWARD EDIT (1-Day Streak / 100% Completion) -->
+    <div id="gear5-overlay" class="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-6 text-center hidden">
+        <div class="relative z-10 space-y-5 max-w-xs text-center">
+            <div class="text-xs uppercase font-black tracking-widest text-yellow-400 bg-yellow-950/80 px-3 py-1 rounded-full border border-yellow-500/30 inline-block">
+                1-Day Streak Completed
+            </div>
+            <h2 class="text-3xl font-black tracking-tighter text-white">GEAR 5 AWAKENING</h2>
+            <div class="w-full aspect-square rounded-2xl border-2 border-white/20 bg-slate-900 overflow-hidden shadow-2xl">
+                <!-- Luffy Gear 5 Awakening Loop Image -->
+                <img src="https://media.giphy.com/media/VJeQrlJLcDsxnknOFX/giphy.gif" class="w-full h-full object-cover brightness-110" alt="Gear 5 Video Edit">
+            </div>
+            <p class="text-sm font-medium tracking-wide text-gray-300 italic">
+                "This is my peak! Shishishi! I can do anything I want now!"
+            </p>
+            <button onclick="closeOverlay('gear5-overlay')" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-xs font-black uppercase tracking-widest text-white py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform">
+                Claim Joy Boy Status
+            </button>
+        </div>
+    </div>
+
+    <!-- 🌌 OVERLAY 2: ULTRA INSTINCT EDIT (7-Day Weekly Streak Milestone) -->
+    <div id="ui-overlay" class="fixed inset-0 bg-slate-950/98 z-50 flex flex-col items-center justify-center p-6 text-center hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-cyan-600/10 via-transparent to-blue-900/20 pointer-events-none transition-opacity duration-1000"></div>
+        <div class="relative z-10 space-y-5 max-w-xs text-center ultra-instinct-glow p-4 rounded-2xl bg-black/40 border border-cyan-500/20">
+            <div class="text-xs uppercase font-black tracking-widest text-cyan-400 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-500/30 inline-block">
+                7-Day Ultimate Milestone
+            </div>
+            <h2 class="text-3xl font-black tracking-tighter text-transparent bg-gradient-to-r from-blue-400 via-cyan-200 to-indigo-400 bg-clip-text">ULTRA INSTINCT</h2>
+            <div class="w-full aspect-video rounded-xl border border-cyan-400/30 bg-slate-900 overflow-hidden shadow-2xl">
+                <!-- Goku Ultra Instinct Awakening Loop Image -->
+                <img src="https://media.giphy.com/media/SIuI7VyvyWMstHcHv6/giphy.gif" class="w-full h-full object-cover" alt="Ultra Instinct Edit">
+            </div>
+            <p class="text-sm font-medium tracking-wide text-cyan-200 italic">
+                "Body and mind have synchronized. Perfect, flawless execution without thought."
+            </p>
+            <button onclick="closeOverlay('ui-overlay')" class="w-full bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 text-xs font-black uppercase tracking-widest text-white py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform">
+                Maintain Form
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const borderColors = ['border-red-500/20', 'border-yellow-500/20', 'border-cyan-500/20', 'border-blue-500/20', 'border-orange-500/20'];
+        const textGradients = ['text-red-400', 'text-yellow-400', 'text-cyan-400', 'text-blue-400', 'text-orange-400'];
+        
+        const luffyQuotes = [
+            "Shishishi! That was easy for you!",
+            "You're going to be King of the Pirates at this rate!",
+            "Meat power! Nice job!",
+            "Unbelievable power! Keep going!",
+            "You're tracking perfectly, friend!"
+        ];
+
+        let appData = {
+            streak: 0,
+            lastCompletedDate: null,
+            tasks: [],
+            weeklyHistory: [50, 70, 60, 80, 90, 45, 0], 
+            monthlyHistory: [55, 65, 75, 85] 
+        };
+
+        let charts = { day: null, week: null, month: null };
+
+        function loadData() {
+            const saved = localStorage.getItem('dopamine_anime_system_v3');
+            if (saved) appData = JSON.parse(saved);
+            else {
+                appData.tasks = [
+                    { id: 1, name: "Add your minimum 20 daily goals here", completed: false },
+                    { id: 2, name: "Hit 100% to wake up the gods", completed: false }
+                ];
+            }
+            document.getElementById('current-date').innerText = "📅 " + new Date().toDateString();
+            renderApp();
+        }
+
+        function saveData() {
+            localStorage.setItem('dopamine_anime_system_v3', JSON.stringify(appData));
+        }
+
+        function addTask() {
+            const input = document.getElementById('task-input');
+            const val = input.value.trim();
+            if (!val) return;
+            appData.tasks.push({ id: Date.now(), name: val, completed: false });
+            input.value = '';
+            saveData();
+            renderApp();
+        }
+
+        function deleteTask(id, event) {
+            event.stopPropagation();
+            appData.tasks = appData.tasks.filter(t => t.id !== id);
+            saveData();
+            renderApp();
+        }
+
+        function toggleTask(id) {
+            const task = appData.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed) {
+                    triggerLuffyPopup();
+                }
+                saveData();
+                renderApp();
+            }
+        }
+
+        function triggerLuffyPopup() {
+            confetti({ particleCount: 10, angle: 60, spread: 35, origin: { x: 0.1, y: 0.8 }, colors: ['#ef4444', '#eab308'] });
+            confetti({ particleCount: 10, angle: 120, spread: 35, origin: { x: 0.9, y: 0.8 }, colors: ['#ef4444', '#eab308'] });
+
+            const popup = document.getElementById('anime-popup');
+            const quoteBox = document.getElementById('anime-quote');
+            quoteBox.innerText = `"${luffyQuotes[Math.floor(Math.random() * luffyQuotes.length)]}"`;
+
+            popup.classList.remove('anime-popup-active');
+            void popup.offsetWidth; 
+            popup.classList.add('anime-popup-active');
+        }
+
+        function renderApp() {
+            document.getElementById('streak-count').innerText = `${appData.streak} Days`;
+            document.getElementById('task-count').innerText = `(${appData.tasks.length})`;
+            
+            const listContainer = document.getElementById('task-list');
+            listContainer.innerHTML = '';
+            let completedCount = 0;
+
+            if(appData.tasks.length === 0) {
+                listContainer.innerHTML = `<p class="text-center text-xs text-gray-600 py-6">No targets. Input parameters above.</p>`;
+            }
+
+            appData.tasks.forEach((task, index) => {
+                if (task.completed) completedCount++;
+                const colorIdx = index % borderColors.length;
+                const borderDesign = borderColors[colorIdx];
+                const customColor = textGradients[colorIdx];
+
+                const card = document.createElement('div');
+                card.className = `task-card flex items-center justify-between p-3.5 rounded-xl border bg-gray-900/20 backdrop-blur-md cursor-pointer ${
+                    task.completed ? 'bg-red-950/20 border-yellow-500/40 text-yellow-400 font-bold' : `${borderDesign} text-gray-300`
+                }`;
+                card.setAttribute('onclick', `toggleTask(${task.id})`);
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 min-w-0 mr-2">
+                        <div class="w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${
+                            task.completed ? 'bg-yellow-500 border-yellow-500 text-slate-950 font-black' : 'border-gray-700'
+                        }">
+                            ${task.completed ? '✓' : ''}
+                        </div>
+                        <span class="text-sm truncate ${task.completed ? 'line-through opacity-20' : customColor}">${task.name}</span>
+                    </div>
+                    <button onclick="deleteTask(${task.id}, event)" class="text-gray-600 hover:text-red-400 font-bold px-1 text-xs">✕</button>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            const percent = appData.tasks.length > 0 ? Math.round((completedCount / appData.tasks.length) * 100) : 0;
+            document.getElementById('progress-percent').innerText = `${percent}%`;
+
+            refreshCharts(percent);
+
+            // Streak check conditional logic
+            if (percent === 100 && appData.tasks.length > 0 && appData.lastCompletedDate !== new Date().toDateString()) {
+                triggerMilestoneAwakening();
+            }
+        }
+
+        function triggerMilestoneAwakening() {
+            appData.streak++;
+            appData.lastCompletedDate = new Date().toDateString();
+            saveData();
+            renderApp();
+
+            // Check conditions: If streak reaches exactly 7 days, trigger Goku UI, else give Luffy Gear 5
+            if (appData.streak % 7 === 0) {
+                document.getElementById('sound-ui').play().catch(()=>{});
+                document.getElementById('ui-overlay').classList.remove('hidden');
+                confetti({ particleCount: 150, spread: 80, colors: ['#67e8f9', '#3b82f6', '#ffffff'] });
+            } else {
+                document.getElementById('sound-gear5').play().catch(()=>{});
+                document.getElementById('gear5-overlay').classList.remove('hidden');
+                confetti({ particleCount: 80, spread: 60, colors: ['#ef4444', '#f59e0b', '#ffffff'] });
+            }
+        }
+
+        function closeOverlay(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function switchChart(type) {
+            ['day', 'week', 'month'].forEach(t => {
+                document.getElementById(`wrapper-${t}`).classList.replace('block', 'hidden');
+                document.getElementById(`btn-${t}`).className = "w-full py-1.5 rounded-lg text-gray-400 transition-all";
+            });
+            document.getElementById(`wrapper-${type}`).classList.replace('hidden', 'block');
+            
+            const activeColors = { day: 'text-red-400 bg-gray-900 shadow-sm', week: 'text-cyan-400 bg-gray-900 shadow-sm', month: 'text-orange-400 bg-gray-900 shadow-sm' };
+            document.getElementById(`btn-${type}`).className = `w-full py-1.5 rounded-lg font-bold ${activeColors[type]}`;
+        }
+
+        function refreshCharts(livePercent) {
+            appData.weeklyHistory[appData.weeklyHistory.length - 1] = livePercent;
+            appData.monthlyHistory[appData.monthlyHistory.length - 1] = livePercent;
+            const remaining = 100 - livePercent;
+
+            const ctxDay = document.getElementById('dayPieChart').getContext('2d');
+            if (charts.day) {
+                charts.day.data.datasets[0].data = [livePercent, remaining];
+                charts.day.update();
+            } else {
+                charts.day = new Chart(ctxDay, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Complete', 'Remaining'],
+                        datasets: [{ data: [livePercent, remaining], backgroundColor: ['#ef4444', '#111827'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+
+            const ctxWeek = document.getElementById('weekLineChart').getContext('2d');
+            if (charts.week) {
+                charts.week.data.datasets[0].data = appData.weeklyHistory;
+                charts.week.update();
+            } else {
+                charts.week = new Chart(ctxWeek, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{ data: appData.weeklyHistory, borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.05)', borderWidth: 2, tension: 0.4, fill: true, pointBackgroundColor: '#06b6d4' }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { ticks: { color: '#4b5563', font: { size: 9 } }, grid: { display: false } }, y: { min: 0, max: 100, display: false } }
+                    }
+                });
+            }
+
+            const ctxMonth = document.getElementById('monthBarChart').getContext('2d');
+            if (charts.month) {
+                charts.month.data.datasets[0].data = appData.monthlyHistory;
+                charts.month.update();
+            } else {
+                charts.month = new Chart(ctxMonth, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Wk 1', 'Wk 2', 'Wk 3', 'This Wk'],
+                        datasets: [{ data: appData.monthlyHistory, backgroundColor: ['#f97316', '#fb923c', '#ea580c', '#ffedd5'], borderRadius: 4 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { ticks: { color: '#4b5563', font: { size: 9 } }, grid: { display: false } }, y: { min: 0, max: 100, display: false } }
+                    }
+                });
+            }
+        }
+
+        function resetDay() {
+            if (confirm("Reset current daily parameters?")) {
+                appData.tasks.forEach(t => t.completed = false);
+                saveData();
+                renderApp();
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
